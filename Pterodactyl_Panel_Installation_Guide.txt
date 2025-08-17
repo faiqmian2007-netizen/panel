@@ -1,0 +1,336 @@
+PTERODACTYL PANEL INSTALLATION GUIDE
+=====================================
+
+Ye Pterodactyl Panel hai jo game servers ko manage karne ke liye banaya gaya hai. 
+Is panel ko Termux aur Amazon server dono par run kar sakte hain.
+
+================================================================================
+PART 1: TERMUX PAR INSTALLATION (Android Phone)
+================================================================================
+
+Step 1: Termux Install Karein
+- Google Play Store se Termux app download karein
+- App ko open karein
+
+Step 2: System Update Karein
+termux-setup-storage
+pkg update && pkg upgrade -y
+
+Step 3: Required Packages Install Karein
+pkg install -y git curl wget unzip
+
+Step 4: PHP Install Karein
+pkg install -y php php-mysql php-curl php-zip php-mbstring php-xml php-json
+
+Step 5: Composer Install Karein (PHP Package Manager)
+curl -sS https://getcomposer.org/installer | php
+mv composer.phar /data/data/com.termux/files/usr/bin/composer
+chmod +x /data/data/com.termux/files/usr/bin/composer
+
+Step 6: Node.js Install Karein
+pkg install -y nodejs
+
+Step 7: Yarn Install Karein
+npm install -g yarn
+
+Step 8: MySQL Install Karein
+pkg install -y mariadb
+
+Step 9: MySQL Start Karein
+mysqld_safe --datadir=/data/data/com.termux/files/usr/var/lib/mysql &
+
+Step 10: MySQL Setup Karein
+mysql -u root
+CREATE DATABASE pterodactyl;
+CREATE USER 'pterodactyl'@'localhost' IDENTIFIED BY 'your_password_here';
+GRANT ALL PRIVILEGES ON pterodactyl.* TO 'pterodactyl'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+Step 11: Project Download Karein
+cd /storage/downloads
+git clone https://github.com/pterodactyl/panel.git
+cd panel
+
+Step 12: Environment File Setup Karein
+cp .env.example .env
+nano .env
+
+Environment file mein ye changes karein:
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=pterodactyl
+DB_USERNAME=pterodactyl
+DB_PASSWORD=your_password_here
+
+Step 13: PHP Dependencies Install Karein
+composer install --no-dev --optimize-autoloader
+
+Step 14: Laravel Key Generate Karein
+php artisan key:generate
+
+Step 15: Database Migrate Karein
+php artisan migrate --force
+
+Step 16: Database Seed Karein
+php artisan db:seed --force
+
+Step 17: Frontend Dependencies Install Karein
+yarn install --frozen-lockfile
+
+Step 18: Frontend Build Karein
+yarn build:production
+
+Step 19: Storage Permissions Set Karein
+chmod -R 755 storage bootstrap/cache/
+
+Step 20: Panel Start Karein
+php artisan serve --host=0.0.0.0 --port=8000
+
+Ab aap apne browser mein ye address open kar sakte hain:
+http://localhost:8000
+
+================================================================================
+PART 2: AMAZON SERVER (EC2) PAR INSTALLATION
+================================================================================
+
+Step 1: Amazon EC2 Instance Create Karein
+- AWS Console mein jao
+- EC2 service select karein
+- "Launch Instance" par click karein
+- Ubuntu 22.04 LTS select karein
+- t2.medium ya t3.medium instance type select karein
+- Security Group mein ports 22 (SSH), 80 (HTTP), 443 (HTTPS) open karein
+- Key pair create karein aur download karein
+
+Step 2: Server Connect Karein
+ssh -i your-key.pem ubuntu@your-server-ip
+
+Step 3: System Update Karein
+sudo apt update && sudo apt upgrade -y
+
+Step 4: Required Packages Install Karein
+sudo apt install -y software-properties-common apt-transport-https ca-certificates curl wget git unzip
+
+Step 5: PHP Install Karein
+sudo apt install -y php8.2 php8.2-fpm php8.2-mysql php8.2-curl php8.2-zip php8.2-mbstring php8.2-xml php8.2-json php8.2-gd php8.2-bcmath
+
+Step 6: Composer Install Karein
+curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer
+
+Step 7: Node.js Install Karein
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+Step 8: Yarn Install Karein
+sudo npm install -g yarn
+
+Step 9: MySQL Install Karein
+sudo apt install -y mysql-server
+
+Step 10: MySQL Secure Installation Karein
+sudo mysql_secure_installation
+
+Step 11: MySQL Database Setup Karein
+sudo mysql -u root -p
+CREATE DATABASE pterodactyl;
+CREATE USER 'pterodactyl'@'localhost' IDENTIFIED BY 'your_strong_password_here';
+GRANT ALL PRIVILEGES ON pterodactyl.* TO 'pterodactyl'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+Step 12: Nginx Install Karein
+sudo apt install -y nginx
+
+Step 13: Project Download Karein
+cd /var/www
+sudo git clone https://github.com/pterodactyl/panel.git
+sudo chown -R www-data:www-data panel
+cd panel
+
+Step 14: Environment File Setup Karein
+sudo cp .env.example .env
+sudo nano .env
+
+Environment file mein ye changes karein:
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://your-domain.com
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=pterodactyl
+DB_USERNAME=pterodactyl
+DB_PASSWORD=your_strong_password_here
+
+CACHE_DRIVER=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+Step 15: PHP Dependencies Install Karein
+sudo composer install --no-dev --optimize-autoloader
+
+Step 16: Laravel Key Generate Karein
+sudo php artisan key:generate
+
+Step 17: Database Migrate Karein
+sudo php artisan migrate --force
+
+Step 18: Database Seed Karein
+sudo php artisan db:seed --force
+
+Step 19: Frontend Dependencies Install Karein
+sudo yarn install --frozen-lockfile
+
+Step 20: Frontend Build Karein
+sudo yarn build:production
+
+Step 21: Storage Permissions Set Karein
+sudo chown -R www-data:www-data storage bootstrap/cache/
+sudo chmod -R 755 storage bootstrap/cache/
+
+Step 22: Nginx Configuration Create Karein
+sudo nano /etc/nginx/sites-available/pterodactyl
+
+Is configuration ko paste karein:
+server {
+    listen 80;
+    server_name your-domain.com;
+    root /var/www/panel/public;
+
+    index index.php;
+
+    charset utf-8;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    access_log off;
+    error_log  /var/log/nginx/pterodactyl-error.log error;
+
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param PHP_VALUE "upload_max_filesize = 100M \n post_max_size=100M";
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param HTTP_PROXY "";
+        fastcgi_intercept_errors off;
+        fastcgi_buffer_size 16k;
+        fastcgi_buffers 4 16k;
+        fastcgi_connect_timeout 300;
+        fastcgi_send_timeout 300;
+        fastcgi_read_timeout 300;
+        include /etc/nginx/fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+
+Step 23: Nginx Site Enable Karein
+sudo ln -s /etc/nginx/sites-available/pterodactyl /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+Step 24: PHP-FPM Restart Karein
+sudo systemctl restart php8.2-fpm
+
+Step 25: Cron Job Setup Karein
+sudo crontab -e
+
+Is line ko add karein:
+* * * * * cd /var/www/panel && php artisan schedule:run >> /dev/null 2>&1
+
+Step 26: Queue Worker Setup Karein
+sudo nano /etc/systemd/system/pterodactyl.service
+
+Is content ko paste karein:
+[Unit]
+Description=Pterodactyl Queue Worker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+ExecStart=/usr/bin/php /var/www/panel/artisan queue:work --sleep=3 --tries=3
+StandardOutput=append:/var/log/pterodactyl.log
+StandardError=append:/var/log/pterodactyl.log
+
+[Install]
+WantedBy=multi-user.target
+
+Step 27: Queue Worker Start Karein
+sudo systemctl enable pterodactyl
+sudo systemctl start pterodactyl
+
+Step 28: SSL Certificate Setup (Optional but Recommended)
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+
+================================================================================
+IMPORTANT NOTES / IMPORTANT BAATEIN
+================================================================================
+
+1. SECURITY / SECURITY:
+   - Strong passwords use karein
+   - Firewall properly configure karein
+   - Regular updates karein
+
+2. BACKUP / BACKUP:
+   - Database ka regular backup lein
+   - Files ka backup lein
+   - Configuration files ka backup lein
+
+3. MONITORING / MONITORING:
+   - Server resources monitor karein
+   - Log files check karein
+   - Performance optimize karein
+
+4. TROUBLESHOOTING / PROBLEM SOLVING:
+   - Log files check karein (/var/log/nginx/, /var/log/pterodactyl/)
+   - Permissions check karein
+   - Database connection verify karein
+
+5. SUPPORT / HELP:
+   - Official documentation: https://pterodactyl.io
+   - Discord community: https://discord.gg/pterodactyl
+   - GitHub issues: https://github.com/pterodactyl/panel/issues
+
+================================================================================
+COMPLETION CHECKLIST / COMPLETE HONE KE BAAD CHECK KAREIN
+================================================================================
+
+Termux par:
+□ Panel http://localhost:8000 par open ho raha hai
+□ Login page show ho raha hai
+□ Database connection working hai
+□ Admin user create ho gaya hai
+
+Amazon Server par:
+□ Panel http://your-domain.com par open ho raha hai
+□ SSL certificate properly installed hai
+□ Database connection working hai
+□ Queue worker running hai
+□ Cron jobs working hain
+□ Nginx properly configured hai
+
+================================================================================
+
+Agar koi problem aaye to log files check karein aur error messages ko note karein.
+Most common problems permissions, database connection, aur configuration files mein hote hain.
+
+Good luck! / Shubh kamnaayein!
