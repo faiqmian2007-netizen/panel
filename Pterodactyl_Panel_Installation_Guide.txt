@@ -1,0 +1,311 @@
+PTERODACTYL PANEL INSTALLATION GUIDE
+=====================================
+
+Ye Pterodactyl Panel hai jo game servers ko manage karne ke liye banaya gaya hai.
+Is guide mein aapko step by step bataya jayega ke ise Termux aur Amazon server par kaise run karna hai.
+
+PART 1: TERMUX PAR INSTALLATION
+================================
+
+Step 1: Termux ko update karein
+-------------------------------
+pkg update && pkg upgrade -y
+
+Step 2: Required packages install karein
+---------------------------------------
+pkg install -y git curl wget unzip
+
+Step 3: PHP aur dependencies install karein
+------------------------------------------
+pkg install -y php php-mysql php-curl php-zip php-mbstring php-xml php-json
+
+Step 4: Composer install karein (PHP package manager)
+----------------------------------------------------
+curl -sS https://getcomposer.org/installer | php
+mv composer.phar /data/data/com.termux/files/usr/bin/composer
+chmod +x /data/data/com.termux/files/usr/bin/composer
+
+Step 5: Node.js aur Yarn install karein
+---------------------------------------
+pkg install -y nodejs
+npm install -g yarn
+
+Step 6: MySQL install karein
+----------------------------
+pkg install -y mariadb
+
+Step 7: MySQL start karein
+--------------------------
+mysqld_safe --datadir=/data/data/com.termux/files/usr/var/lib/mysql &
+
+Step 8: MySQL secure installation
+--------------------------------
+mysql_secure_installation
+(Password set karein aur questions ke 'Y' answer dein)
+
+Step 9: Database create karein
+------------------------------
+mysql -u root -p
+CREATE DATABASE pterodactyl;
+CREATE USER 'pterodactyl'@'localhost' IDENTIFIED BY 'your_password_here';
+GRANT ALL PRIVILEGES ON pterodactyl.* TO 'pterodactyl'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+Step 10: Project clone karein
+-----------------------------
+cd /data/data/com.termux/files/home
+git clone https://github.com/pterodactyl/panel.git
+cd panel
+
+Step 11: PHP dependencies install karein
+---------------------------------------
+composer install --no-dev --optimize-autoloader
+
+Step 12: Environment file setup karein
+--------------------------------------
+cp .env.example .env
+php artisan key:generate
+
+Step 13: .env file edit karein
+------------------------------
+nano .env
+(Is file mein database settings update karein)
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=pterodactyl
+DB_USERNAME=pterodactyl
+DB_PASSWORD=your_password_here
+
+Step 14: Database migrate karein
+--------------------------------
+php artisan migrate --seed
+
+Step 15: Frontend build karein
+------------------------------
+yarn install
+yarn build:production
+
+Step 16: Storage permissions set karein
+--------------------------------------
+chmod -R 755 storage bootstrap/cache
+
+Step 17: Queue worker start karein
+----------------------------------
+php artisan queue:work --daemon &
+
+Step 18: Panel start karein
+---------------------------
+php artisan serve --host=0.0.0.0 --port=8000
+
+Ab aap apne browser mein http://localhost:8000 ya http://your_ip:8000 par ja sakte hain.
+
+PART 2: AMAZON SERVER (EC2) PAR INSTALLATION
+=============================================
+
+Step 1: Amazon EC2 instance create karein
+-----------------------------------------
+- AWS Console mein jao
+- EC2 service select karein
+- "Launch Instance" par click karein
+- Ubuntu 22.04 LTS select karein
+- t3.medium ya t3.large instance type select karein (minimum 2GB RAM)
+- Security Group mein ports 22 (SSH), 80 (HTTP), 443 (HTTPS), 8000 (Panel) open karein
+- Key pair create karein aur download karein
+
+Step 2: Server par connect karein
+---------------------------------
+Terminal/Command Prompt mein:
+ssh -i your_key.pem ubuntu@your_server_ip
+
+Step 3: System update karein
+----------------------------
+sudo apt update && sudo apt upgrade -y
+
+Step 4: Required packages install karein
+---------------------------------------
+sudo apt install -y git curl wget unzip software-properties-common apt-transport-https ca-certificates gnupg
+
+Step 5: PHP 8.2 install karein
+------------------------------
+sudo add-apt-repository ppa:ondrej/php -y
+sudo apt update
+sudo apt install -y php8.2 php8.2-fpm php8.2-mysql php8.2-curl php8.2-zip php8.2-mbstring php8.2-xml php8.2-json php8.2-gd php8.2-bcmath
+
+Step 6: Composer install karein
+-------------------------------
+curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer
+
+Step 7: Node.js aur Yarn install karein
+---------------------------------------
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g yarn
+
+Step 8: MySQL install karein
+----------------------------
+sudo apt install -y mysql-server
+
+Step 9: MySQL secure installation
+--------------------------------
+sudo mysql_secure_installation
+(Password set karein aur questions ke 'Y' answer dein)
+
+Step 10: Database create karein
+-------------------------------
+sudo mysql -u root -p
+CREATE DATABASE pterodactyl;
+CREATE USER 'pterodactyl'@'localhost' IDENTIFIED BY 'your_strong_password_here';
+GRANT ALL PRIVILEGES ON pterodactyl.* TO 'pterodactyl'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+Step 11: Nginx install karein
+-----------------------------
+sudo apt install -y nginx
+
+Step 12: Project clone karein
+-----------------------------
+cd /var/www
+sudo git clone https://github.com/pterodactyl/panel.git
+sudo chown -R www-data:www-data panel
+cd panel
+
+Step 13: PHP dependencies install karein
+---------------------------------------
+sudo -u www-data composer install --no-dev --optimize-autoloader
+
+Step 14: Environment file setup karein
+--------------------------------------
+sudo -u www-data cp .env.example .env
+sudo -u www-data php artisan key:generate
+
+Step 15: .env file edit karein
+------------------------------
+sudo nano .env
+(Is file mein database settings update karein)
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=pterodactyl
+DB_USERNAME=pterodactyl
+DB_PASSWORD=your_strong_password_here
+
+APP_URL=http://your_domain_or_ip
+
+Step 16: Database migrate karein
+--------------------------------
+sudo -u www-data php artisan migrate --seed
+
+Step 17: Frontend build karein
+------------------------------
+sudo -u www-data yarn install
+sudo -u www-data yarn build:production
+
+Step 18: Storage permissions set karein
+--------------------------------------
+sudo chmod -R 755 storage bootstrap/cache
+sudo chown -R www-data:www-data storage bootstrap/cache
+
+Step 19: Nginx configuration create karein
+-----------------------------------------
+sudo nano /etc/nginx/sites-available/pterodactyl
+
+Is file mein ye content add karein:
+
+server {
+    listen 80;
+    server_name your_domain_or_ip;
+    root /var/www/panel/public;
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+
+Step 20: Nginx site enable karein
+---------------------------------
+sudo ln -s /etc/nginx/sites-available/pterodactyl /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+Step 21: Queue worker setup karein
+----------------------------------
+sudo nano /etc/systemd/system/pterodactyl-queue.service
+
+Is file mein ye content add karein:
+
+[Unit]
+Description=Pterodactyl Queue Worker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+ExecStart=/usr/bin/php /var/www/panel/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+Step 22: Queue worker start karein
+----------------------------------
+sudo systemctl enable pterodactyl-queue
+sudo systemctl start pterodactyl-queue
+
+Step 23: Cron job setup karein
+-------------------------------
+sudo crontab -u www-data -e
+
+Is file mein ye line add karein:
+* * * * * cd /var/www/panel && php artisan schedule:run >> /dev/null 2>&1
+
+Step 24: Firewall setup karein
+-------------------------------
+sudo ufw allow 22
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw enable
+
+Step 25: Panel access karein
+-----------------------------
+Ab aap apne browser mein http://your_server_ip ya http://your_domain par ja sakte hain.
+
+IMPORTANT NOTES:
+================
+
+1. Security ke liye strong passwords use karein
+2. Regular backups lein
+3. SSL certificate install karein (Let's Encrypt free hai)
+4. Firewall properly configure karein
+5. Regular updates karein
+
+TROUBLESHOOTING:
+================
+
+Agar koi error aaye to:
+1. Logs check karein: tail -f /var/log/nginx/error.log
+2. PHP logs check karein: tail -f /var/log/php8.2-fpm.log
+3. Panel logs check karein: tail -f /var/www/panel/storage/logs/laravel.log
+
+Help ke liye:
+- Pterodactyl Discord: https://discord.gg/pterodactyl
+- Documentation: https://pterodactyl.io/panel/1.0/getting_started.html
+
+Ye guide follow karne ke baad aapka Pterodactyl Panel successfully run ho jayega!
